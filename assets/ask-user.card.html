@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; connect-src 'none'">
+<title>动手之前，想先问你三件事</title>
+<script type="application/json" data-card-manifest>
+{
+  "spec": "1.0",
+  "display": { "styleProfile": "custom", "preferredWidthPx": 560 },
+  "packageAssets": ["assets/hana-card-style.css"],
+  "stateSchema": {
+    "type": "object",
+    "properties": {
+      "uiLanguage": { "type": "string" },
+      "title": { "type": "string" },
+      "intro": { "type": "string" },
+      "questions": { "type": "array" },
+      "answers": { "type": "object" },
+      "currentPage": { "type": "number" },
+      "submittedAt": { "type": ["string", "null"] },
+      "allDefault": { "type": "boolean" }
+    }
+  }
+}
+</script>
+<script type="application/json" data-card-state>
+{
+  "uiLanguage": "zh",
+  "title": "动手之前，想先问你三件事",
+  "intro": "",
+  "questions": [
+    {
+      "id": "audience",
+      "text": "这篇内容主要写给谁看？",
+      "type": "single",
+      "allowNote": true,
+      "options": [
+        { "label": "对 AI 好奇的泛读者", "hint": "多比喻少术语，重直觉与故事——这是你读者最多的一层", "recommended": true },
+        { "label": "同行开发者", "hint": "可以放开用术语，重架构与细节" },
+        { "label": "潜在用户", "hint": "重场景与收益，少讲原理" }
+      ]
+    },
+    {
+      "id": "angle",
+      "text": "希望从哪些角度切入？可多选。",
+      "type": "multi",
+      "allowNote": true,
+      "options": [
+        { "label": "设计理念", "hint": "为什么这样做，取舍是什么" },
+        { "label": "真实使用场景", "hint": "具体到某一天的工作流" },
+        { "label": "与别家对照", "hint": "诚实比较，不拉踩" }
+      ]
+    },
+    {
+      "id": "extra",
+      "text": "还有什么一定要提到、或一定不要碰的？",
+      "type": "text"
+    }
+  ],
+  "answers": {},
+  "currentPage": 0,
+  "submittedAt": null,
+  "allDefault": false
+}
+</script>
+<link rel="stylesheet" href="assets/hana-card-style.css">
+<style>
+  html, body { margin: 0; padding: 0; background: var(--hs-bg); color: var(--hs-ink); font-family: var(--hs-sans); }
+  .hs-shell.ask-shell { height: 480px; display: flex; flex-direction: column; padding-top: var(--hs-space-10); }
+
+  .ask-head { flex: none; padding-bottom: var(--hs-space-8); }
+  .ask-page { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--hs-line); padding: var(--hs-space-8) 0; }
+  .ask-hidden { display: none !important; }
+
+  /* question */
+  .ask-q-head { display: flex; gap: var(--hs-space-8); align-items: baseline; margin-bottom: var(--hs-space-8); }
+  .ask-num {
+    flex: none; width: 20px; height: 20px; border-radius: 50%;
+    display: inline-grid; place-items: center; align-self: center;
+    font-size: 11px; font-weight: 600;
+    background: var(--hs-tint); color: var(--hs-sub);
+  }
+  .ask-q-text { font-family: var(--hs-serif); font-size: 16px; line-height: 1.6; margin: 0; }
+  .ask-opts { display: grid; gap: var(--hs-space-6); }
+  .ask-opt { flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; width: 100%; height: auto; padding: var(--hs-space-7) var(--hs-space-10); }
+  .ask-opt .ask-hint { font-size: 12px; font-weight: 400; color: var(--hs-muted); line-height: 1.5; }
+  .ask-opt[aria-pressed="true"] .ask-hint { color: var(--hs-sub); }
+  .ask-check { align-items: flex-start; padding: 2px 0; }
+  .ask-check input { margin-top: 2px; flex: none; }
+  .ask-check .ask-hint { display: block; font-size: 12px; color: var(--hs-muted); line-height: 1.5; }
+  .ask-note { margin-top: var(--hs-space-7); }
+  .ask-note .hs-input { font-size: 13px; min-height: 32px; }
+  .ask-rec { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; line-height: 1.7; background: var(--hs-tint); color: var(--hs-accent); vertical-align: 1px; white-space: nowrap; }
+
+  /* defer lives inside the last page, so every page keeps the same height */
+  .ask-defer-block { margin-top: var(--hs-space-10); padding-top: var(--hs-space-8); border-top: 1px dashed var(--hs-line); text-align: center; }
+  .ask-defer-block .hs-button { border-color: transparent; }
+  .ask-foot { flex: none; display: flex; align-items: center; gap: var(--hs-space-7); padding-top: var(--hs-space-8); border-top: 1px solid var(--hs-line); }
+  .ask-foot .hs-button { white-space: nowrap; flex: none; }
+  #askPrevBtn { border-color: transparent; }
+  #askPrevBtn.ask-ghost { visibility: hidden; }
+  .ask-dots { flex: 1; display: flex; gap: 9px; align-items: center; justify-content: center; }
+  .ask-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--hs-muted); background: transparent; cursor: pointer; padding: 0; }
+  .ask-dot.done { background: var(--green, #52765c); border-color: var(--green, #52765c); }
+  .ask-dot.cur { background: var(--hs-accent); border-color: var(--hs-accent); }
+
+  /* summary */
+  .ask-status-row { display: flex; align-items: center; justify-content: space-between; gap: var(--hs-space-8); margin-bottom: var(--hs-space-8); }
+  .ask-a-row { padding: var(--hs-space-6) 0; }
+  .ask-a-row + .ask-a-row { border-top: 1px solid var(--hs-line); }
+  .ask-a-q { font-size: 12.5px; color: var(--hs-muted); line-height: 1.5; }
+  .ask-a-v { font-size: 14px; line-height: 1.65; }
+  .ask-a-note { font-size: 13px; color: var(--hs-sub); line-height: 1.6; }
+  .ask-skipped { color: var(--hs-muted); font-style: italic; }
+
+  /* copy fallback */
+  .ask-copybox { width: 100%; box-sizing: border-box; font-family: var(--hs-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6; min-height: 140px; }
+
+  /* page transition */
+  @keyframes askInR { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  @keyframes askInL { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+  .ask-slide-r { animation: askInR .18s ease-out; }
+  .ask-slide-l { animation: askInL .18s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .ask-slide-r, .ask-slide-l { animation: none; } }
+</style>
+</head>
+<body>
+<main class="hs-page">
+  <div class="hs-shell ask-shell">
+
+    <header class="ask-head">
+      <p class="hs-eyebrow" id="askEyebrow"></p>
+      <h1 class="hs-title" id="askTitle" style="font-size:21px;"></h1>
+      <p class="hs-lead ask-hidden" id="askIntro" style="font-size:14px;"></p>
+    </header>
+
+    <div id="askPage" class="ask-page" role="group" aria-live="polite"></div>
+
+    <div id="askSummary" class="ask-page ask-hidden">
+      <div class="ask-status-row">
+        <span class="hs-badge hs-badge--good" id="askSubmittedBadge"></span>
+        <button type="button" class="hs-button hs-button--quiet" id="askEditBtn"></button>
+      </div>
+      <div id="askSummaryList"></div>
+    </div>
+
+    <div id="askCopyZone" class="ask-page ask-hidden" style="display:grid; gap: var(--hs-space-7); align-content:start;">
+      <p class="ask-a-q" id="askCopyHint"></p>
+      <textarea class="hs-textarea ask-copybox" id="askCopyText" readonly></textarea>
+      <div><button type="button" class="hs-button" id="askCopyBtn"></button></div>
+    </div>
+
+    <footer class="ask-foot" id="askFoot">
+      <button type="button" class="hs-button hs-button--quiet ask-ghost" id="askPrevBtn"></button>
+      <div class="ask-dots" id="askDots"></div>
+      <button type="button" class="hs-button" id="askNextBtn"></button>
+    </footer>
+
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- i18n ---------- */
+  var STR = {
+    zh: {
+      eyebrow: "想请教你",
+      prev: "‹ 上一题",
+      next: "下一题 ›",
+      submit: "提交回答",
+      resubmit: "更新回答",
+      defer: "都交给你决定",
+      submitted: function (time) { return "已提交 · " + time; },
+      edit: "修改答案",
+      skipped: "（跳过，交给 Agent 判断）",
+      notePh: "或补充一句…",
+      textPh: "写多少都行…",
+      deferredAll: "全部交给 Agent 决定了。",
+      copyHint: "这张卡片当前不在 Hana 宿主里，无法直接叫醒 Agent。把下面的回答复制回对话即可：",
+      copy: "复制回答",
+      copied: "已复制 ✓",
+      multiSuffix: "、",
+      recommended: "推荐",
+      dotLabel: function (i) { return "第 " + (i + 1) + " 题"; }
+    },
+    en: {
+      eyebrow: "A few questions",
+      prev: "‹ Back",
+      next: "Next ›",
+      submit: "Submit answers",
+      resubmit: "Update answers",
+      defer: "Decide for me",
+      submitted: function (time) { return "Submitted · " + time; },
+      edit: "Edit answers",
+      skipped: "(skipped — Agent's judgement)",
+      notePh: "or add a note…",
+      textPh: "as much as you like…",
+      deferredAll: "Left entirely to the Agent.",
+      copyHint: "This card is outside the Hana host and cannot wake the Agent. Copy the answers back into the chat:",
+      copy: "Copy answers",
+      copied: "Copied ✓",
+      multiSuffix: ", ",
+      recommended: "Recommended",
+      dotLabel: function (i) { return "Question " + (i + 1); }
+    }
+  };
+
+  /* ---------- state snapshot ---------- */
+  function readEmbedded() {
+    var el = document.querySelector("script[data-card-state]");
+    try { return JSON.parse(el.textContent); } catch (e) { return {}; }
+  }
+  var snap = readEmbedded();
+  var lang = (snap.uiLanguage === "en") ? "en" : "zh";
+  var T = STR[lang];
+  var questions = Array.isArray(snap.questions) ? snap.questions : [];
+  var answers = (snap.answers && typeof snap.answers === "object") ? snap.answers : {};
+  var currentPage = (typeof snap.currentPage === "number" && snap.currentPage >= 0) ? Math.min(snap.currentPage, questions.length - 1) : 0;
+  var submittedAt = snap.submittedAt || null;
+  var allDefault = !!snap.allDefault;
+
+  /* ---------- host bridge ---------- */
+  var caps = { emit: false, state: false, track: false };
+  function boot() {
+    if (!window.card || typeof window.card.capabilities !== "function") { render(); return; }
+    window.card.capabilities().then(function (env) {
+      var c = (env && env.ok && env.result && env.result.capabilities) || {};
+      caps.emit = c.emit === "available";
+      caps.state = c.state === "available" || c.state === "local_fallback";
+      var tr = c.track;
+      caps.track = !!(tr && (tr.status === "available" || tr.status === "local_fallback"));
+      if (!caps.state) { render(); return; }
+      Promise.all([
+        window.card.state.get("answers"),
+        window.card.state.get("submittedAt"),
+        window.card.state.get("allDefault"),
+        window.card.state.get("currentPage")
+      ]).then(function (rs) {
+        if (rs[0] && rs[0].ok && rs[0].result && rs[0].result.value && typeof rs[0].result.value === "object") {
+          answers = rs[0].result.value;
+        }
+        if (rs[1] && rs[1].ok && rs[1].result && rs[1].result.value) { submittedAt = rs[1].result.value; }
+        if (rs[2] && rs[2].ok && rs[2].result && typeof rs[2].result.value === "boolean") { allDefault = rs[2].result.value; }
+        if (rs[3] && rs[3].ok && rs[3].result && typeof rs[3].result.value === "number") {
+          currentPage = Math.max(0, Math.min(rs[3].result.value, questions.length - 1));
+        }
+        render();
+      });
+    });
+  }
+
+  function persist() {
+    if (!caps.state) return;
+    try {
+      window.card.state.set("answers", answers);
+      window.card.state.set("submittedAt", submittedAt);
+      window.card.state.set("allDefault", allDefault);
+      window.card.state.set("currentPage", currentPage);
+    } catch (e) { /* persistence is best-effort */ }
+  }
+
+  /* ---------- helpers ---------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function answerOf(q) {
+    var a = answers[q.id];
+    if (!a || typeof a !== "object") return { value: q.type === "multi" ? [] : null, note: "" };
+    return {
+      value: a.value != null ? a.value : (q.type === "multi" ? [] : null),
+      note: typeof a.note === "string" ? a.note : ""
+    };
+  }
+  function isAnswered(q) {
+    var a = answerOf(q);
+    if (q.type === "multi") return (a.value.length > 0) || a.note.trim() !== "";
+    if (q.type === "text") return String(a.value || "").trim() !== "";
+    return a.value != null || a.note.trim() !== "";
+  }
+  function setAnswer(q, value, note) {
+    var empty = (q.type === "multi" ? (!value || value.length === 0) : (value == null || String(value).trim() === ""))
+      && (!note || note.trim() === "");
+    if (empty) { delete answers[q.id]; }
+    else { answers[q.id] = { value: value, note: note || "" }; }
+    renderDots();
+    persist();
+  }
+  function fmtTime(iso) {
+    try {
+      var d = new Date(iso);
+      return d.toLocaleString(lang === "zh" ? "zh-CN" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
+
+  /* ---------- one question ---------- */
+  var pageEl = document.getElementById("askPage");
+  function renderQuestion(q, i) {
+    var frag = document.createDocumentFragment();
+    var a = answerOf(q);
+
+    var head = el("div", "ask-q-head");
+    head.appendChild(el("span", "ask-num", String(i + 1)));
+    head.appendChild(el("p", "ask-q-text", q.text));
+    frag.appendChild(head);
+
+    if (q.type === "single") {
+      var opts = el("div", "ask-opts");
+      (q.options || []).forEach(function (opt) {
+        var b = el("button", "hs-button ask-opt");
+        b.type = "button";
+        b.setAttribute("aria-pressed", a.value === opt.label ? "true" : "false");
+        var lab = el("span", null, opt.label);
+        if (opt.recommended) lab.appendChild(el("span", "ask-rec", T.recommended));
+        b.appendChild(lab);
+        if (opt.hint) b.appendChild(el("span", "ask-hint", opt.hint));
+        b.addEventListener("click", function () {
+          var cur = answerOf(q);
+          var next = (cur.value === opt.label) ? null : opt.label;
+          opts.querySelectorAll(".ask-opt").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+          if (next != null) b.setAttribute("aria-pressed", "true");
+          setAnswer(q, next, cur.note);
+        });
+        opts.appendChild(b);
+      });
+      frag.appendChild(opts);
+    } else if (q.type === "multi") {
+      var box = el("div", "ask-opts");
+      (q.options || []).forEach(function (opt) {
+        var lab = el("label", "hs-check ask-check");
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = a.value.indexOf(opt.label) !== -1;
+        cb.addEventListener("change", function () {
+          var cur = answerOf(q);
+          var vals = cur.value.slice();
+          var at = vals.indexOf(opt.label);
+          if (cb.checked && at === -1) vals.push(opt.label);
+          if (!cb.checked && at !== -1) vals.splice(at, 1);
+          setAnswer(q, vals, cur.note);
+        });
+        lab.appendChild(cb);
+        var txt = el("span");
+        var nameSpan = el("span", null, opt.label);
+        if (opt.recommended) nameSpan.appendChild(el("span", "ask-rec", T.recommended));
+        txt.appendChild(nameSpan);
+        if (opt.hint) txt.appendChild(el("span", "ask-hint", opt.hint));
+        lab.appendChild(txt);
+        box.appendChild(lab);
+      });
+      frag.appendChild(box);
+    } else { /* text */
+      var ta = el("textarea", "hs-textarea");
+      ta.rows = 4;
+      ta.placeholder = T.textPh;
+      ta.value = a.value || "";
+      ta.addEventListener("change", function () {
+        setAnswer(q, ta.value, "");
+      });
+      frag.appendChild(ta);
+    }
+
+    if (q.allowNote && q.type !== "text") {
+      var noteWrap = el("div", "ask-note");
+      var note = el("input", "hs-input");
+      note.type = "text";
+      note.placeholder = T.notePh;
+      note.value = a.note;
+      note.addEventListener("change", function () {
+        var cur = answerOf(q);
+        setAnswer(q, cur.value, note.value);
+      });
+      noteWrap.appendChild(note);
+      frag.appendChild(noteWrap);
+    }
+
+    if (i === questions.length - 1) {
+      var deferBlock = el("div", "ask-defer-block");
+      var deferBtn = el("button", "hs-button hs-button--quiet", T.defer);
+      deferBtn.type = "button";
+      deferBtn.addEventListener("click", function () { submit(true); });
+      deferBlock.appendChild(deferBtn);
+      frag.appendChild(deferBlock);
+    }
+
+    return frag;
+  }
+
+  /* ---------- paging ---------- */
+  function renderPage(i, dir) {
+    currentPage = Math.max(0, Math.min(i, questions.length - 1));
+    pageEl.innerHTML = "";
+    if (questions.length) pageEl.appendChild(renderQuestion(questions[currentPage], currentPage));
+
+    pageEl.classList.remove("ask-slide-r", "ask-slide-l");
+    if (dir) {
+      void pageEl.offsetWidth; /* restart animation */
+      pageEl.classList.add(dir > 0 ? "ask-slide-r" : "ask-slide-l");
+    }
+
+    document.getElementById("askPrevBtn").classList.toggle("ask-ghost", currentPage === 0);
+    var nextBtn = document.getElementById("askNextBtn");
+    var last = currentPage === questions.length - 1;
+    nextBtn.textContent = last ? (submittedAt ? T.resubmit : T.submit) : T.next;
+    nextBtn.className = last ? "hs-button hs-button--primary" : "hs-button";
+    renderDots();
+    persist();
+  }
+  function renderDots() {
+    var dots = document.getElementById("askDots");
+    dots.innerHTML = "";
+    questions.forEach(function (q, i) {
+      var d = el("button", "ask-dot");
+      d.type = "button";
+      d.title = T.dotLabel(i);
+      d.setAttribute("aria-label", T.dotLabel(i));
+      if (isAnswered(q)) d.classList.add("done");
+      if (i === currentPage) d.classList.add("cur");
+      d.addEventListener("click", function () { renderPage(i, i > currentPage ? 1 : -1); });
+      dots.appendChild(d);
+    });
+  }
+  document.getElementById("askPrevBtn").addEventListener("click", function () { renderPage(currentPage - 1, -1); });
+  document.getElementById("askNextBtn").addEventListener("click", function () {
+    if (currentPage === questions.length - 1) { submit(false); }
+    else { renderPage(currentPage + 1, 1); }
+  });
+
+  /* ---------- summary face ---------- */
+  function renderSummary() {
+    var list = document.getElementById("askSummaryList");
+    list.innerHTML = "";
+    if (allDefault) {
+      list.appendChild(el("p", "ask-a-v", T.deferredAll));
+    } else {
+      questions.forEach(function (q) {
+        var row = el("div", "ask-a-row");
+        row.appendChild(el("div", "ask-a-q", q.text));
+        var a = answerOf(q);
+        var parts = [];
+        if (q.type === "multi" && a.value.length) parts.push(a.value.join(T.multiSuffix));
+        else if (q.type !== "multi" && a.value != null && String(a.value).trim() !== "") parts.push(String(a.value));
+        if (parts.length === 0 && a.note.trim() === "") {
+          row.appendChild(el("div", "ask-a-v ask-skipped", T.skipped));
+        } else {
+          if (parts.length) row.appendChild(el("div", "ask-a-v", parts.join(T.multiSuffix)));
+          if (a.note.trim()) row.appendChild(el("div", "ask-a-note", "「" + a.note.trim() + "」"));
+        }
+        list.appendChild(row);
+      });
+    }
+    document.getElementById("askSubmittedBadge").textContent = T.submitted(fmtTime(submittedAt));
+  }
+
+  /* ---------- serialize for emit / copy ---------- */
+  function payload() {
+    var out = { title: snap.title || "", allDefault: allDefault, submittedAt: submittedAt, answers: {} };
+    if (!allDefault) {
+      questions.forEach(function (q) {
+        var a = answerOf(q);
+        var entry = { question: q.text, skipped: !isAnswered(q) };
+        if (q.type === "multi") entry.answer = a.value.slice(0, 12);
+        else if (a.value != null) entry.answer = String(a.value).slice(0, 1000);
+        if (a.note.trim()) entry.note = a.note.trim().slice(0, 280);
+        out.answers[q.id] = entry;
+      });
+    }
+    var s = JSON.stringify(out);
+    while (s.length > 7800 && Object.keys(out.answers).length) {
+      var keys = Object.keys(out.answers), k = keys[keys.length - 1];
+      var e = out.answers[k];
+      if (e.answer && String(e.answer).length > 120) { e.answer = String(e.answer).slice(0, 120) + "…"; }
+      else if (e.note && e.note.length > 60) { e.note = e.note.slice(0, 60) + "…"; }
+      else { delete out.answers[k]; }
+      s = JSON.stringify(out);
+    }
+    return out;
+  }
+  function plainText() {
+    var p = payload();
+    var lines = ["[" + (p.title || T.eyebrow) + "]"];
+    Object.keys(p.answers).forEach(function (qid) {
+      var e = p.answers[qid];
+      var v = e.skipped ? T.skipped
+        : (Array.isArray(e.answer) ? e.answer.join(T.multiSuffix) : (e.answer || "")) + (e.note ? "（" + e.note + "）" : "");
+      lines.push("· " + e.question + " → " + v);
+    });
+    if (p.allDefault) lines.push(T.deferredAll);
+    return lines.join("\n");
+  }
+
+  /* ---------- faces ---------- */
+  function showForm(editing) {
+    document.getElementById("askSummary").classList.add("ask-hidden");
+    document.getElementById("askCopyZone").classList.add("ask-hidden");
+    pageEl.classList.remove("ask-hidden");
+    document.getElementById("askFoot").classList.remove("ask-hidden");
+    renderPage(currentPage, 0);
+  }
+  function showSummary() {
+    pageEl.classList.add("ask-hidden");
+    document.getElementById("askFoot").classList.add("ask-hidden");
+    document.getElementById("askCopyZone").classList.add("ask-hidden");
+    renderSummary();
+    document.getElementById("askSummary").classList.remove("ask-hidden");
+  }
+  function showCopy() {
+    pageEl.classList.add("ask-hidden");
+    document.getElementById("askFoot").classList.add("ask-hidden");
+    document.getElementById("askSummary").classList.add("ask-hidden");
+    document.getElementById("askCopyHint").textContent = T.copyHint;
+    document.getElementById("askCopyText").value = plainText();
+    document.getElementById("askCopyBtn").textContent = T.copy;
+    document.getElementById("askCopyZone").classList.remove("ask-hidden");
+  }
+
+  function render() {
+    document.getElementById("askEyebrow").textContent = T.eyebrow;
+    document.getElementById("askTitle").textContent = snap.title || T.eyebrow;
+    var introEl = document.getElementById("askIntro");
+    if (snap.intro) { introEl.textContent = snap.intro; introEl.classList.remove("ask-hidden"); }
+    document.getElementById("askPrevBtn").textContent = T.prev;
+    document.getElementById("askEditBtn").textContent = T.edit;
+    if (submittedAt) { showSummary(); }
+    else { showForm(false); }
+  }
+
+  /* ---------- submit ---------- */
+  function submit(deferAll) {
+    allDefault = !!deferAll;
+    submittedAt = new Date().toISOString();
+    persist();
+    if (caps.track) { try { window.card.track("ask-user-submitted", { allDefault: allDefault, answered: questions.filter(isAnswered).length, total: questions.length }); } catch (e) {} }
+    if (caps.emit) {
+      window.card.emit("ask-user-answers", payload()).then(function (env) {
+        if (env && env.ok) { showSummary(); }
+        else { showCopy(); } /* no conversation route — fall back to copy */
+      });
+    } else {
+      showCopy();
+    }
+  }
+  document.getElementById("askEditBtn").addEventListener("click", function () { showForm(true); });
+  document.getElementById("askCopyBtn").addEventListener("click", function () {
+    var ta = document.getElementById("askCopyText");
+    var done = function () { document.getElementById("askCopyBtn").textContent = T.copied; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); });
+    } else { ta.select(); done(); }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
